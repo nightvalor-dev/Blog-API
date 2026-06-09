@@ -17,39 +17,16 @@ func NewService(client *cld.Cloudinary) *Service {
 	}
 }
 
-func (s *Service) Upload(
-	ctx context.Context,
-	file interface{},
-) (string, string, error) {
-
-	result, err := s.client.Upload.Upload(
-		ctx,
-		file,
-		uploader.UploadParams{
-			Folder: "blog-media",
-		},
-	)
-
+func (s *Service) Upload(ctx context.Context, file interface{}) (string, string, error) {
+	result, err := s.client.Upload.Upload(ctx, file, uploader.UploadParams{Folder: "blog-media"})
 	if err != nil {
 		return "", "", err
 	}
 
-	return result.SecureURL,
-		result.PublicID,
-		nil
+	return result.SecureURL, result.PublicID, nil
 }
 
-func (s *Service) Delete(
-	ctx context.Context,
-	publicId string,
-) error {
-
-	_, err := s.client.Upload.Destroy(
-		ctx,
-		uploader.DestroyParams{
-			PublicID: publicId,
-		},
-	)
-
+func (s *Service) Delete(ctx context.Context, publicId string) error {
+	_, err := s.client.Upload.Destroy(ctx, uploader.DestroyParams{PublicID: publicId})
 	return err
 }

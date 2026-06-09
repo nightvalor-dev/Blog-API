@@ -1,7 +1,10 @@
 package media
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"log"
 	"mime/multipart"
 
 	sharedcloudinary "Project2-v7/internal/shared/cloudinary"
@@ -24,22 +27,34 @@ func NewMediaService(
 }
 
 func (s *MediaService) Upload(ctx context.Context, blogId int, file multipart.File) (MediaResponse, error) {
-	url, publicID, err :=
-		s.cloudinary.Upload(ctx, file)
-
+	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		return MediaResponse{}, err
 	}
 
-	mediaId, err := s.repo.Save(blogId, url, publicID)
+	mediaId, err := s.repo.Save(blogId, "", "")
 	if err != nil {
 		return MediaResponse{}, err
 	}
+
+	go func() {
+		reader := bytes.NewReader(fileBytes)
+		url, publicID, err := s.cloudinary.Upload(context.Background(), reader)
+
+		if err != nil {
+			log.Printf("cloudinary upload failed for media %d: %v", mediaId, err)
+			return
+		}
+
+		if err := s.repo.UpdateURLAndPublicID(mediaId, url, publicID); err != nil {
+			log.Printf("failed to update media %d after upload: %v", mediaId, err)
+		}
+	}()
 
 	return MediaResponse{
 		MediaId: mediaId,
 		BlogId:  blogId,
-		Url:     url,
+		Url:     "", // client gets empty URL, polls or waits
 	}, nil
 }
 

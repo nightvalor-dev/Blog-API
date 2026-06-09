@@ -57,3 +57,9 @@ func (r *mediaRepository) Delete(mediaId int) (string, error) {
 	}
 	return publicId, nil
 }
+
+func (r *mediaRepository) UpdateURLAndPublicID(mediaId int, url, publicID string) error {
+	query := "UPDATE media SET url = $1, public_id = $2 WHERE media_id = $3"
+	_, err := r.db.Exec(context.Background(), query, url, publicID, mediaId)
+	return err
+}
