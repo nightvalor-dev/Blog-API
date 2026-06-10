@@ -22,8 +22,8 @@ func NewBlogService(
 	categoryRepo category.CategoryRepository,
 	tagRepo tag.TagRepository,
 	mediaRepo media.MediaRepository,
-	cache *redis.Cache,
-) *BlogService {
+	cache *redis.Cache) *BlogService {
+
 	return &BlogService{
 		blogrepo:     blogrepo,
 		categoryRepo: categoryRepo,
@@ -38,6 +38,7 @@ func (s *BlogService) Create(ctx context.Context, req CreateBlogRequest) error {
 	if err != nil {
 		return err
 	}
+
 	for _, c := range req.Category {
 		categoryId, err := s.categoryRepo.FindOrCreate(category.CategoryRequest{
 			CategoryName: c.CategoryName,
@@ -46,22 +47,25 @@ func (s *BlogService) Create(ctx context.Context, req CreateBlogRequest) error {
 		if err != nil {
 			return err
 		}
-		err = s.blogrepo.AddCategory(blogId, categoryId)
-		if err != nil {
+
+		if err = s.blogrepo.AddCategory(blogId, categoryId); err != nil {
 			return err
 		}
 	}
 
 	for _, t := range req.Tags {
 		tagId, err := s.tagRepo.FindOrCreate(tag.TagRequest{TagName: t.TagName})
+
 		if err != nil {
 			return err
 		}
+
 		if err = s.blogrepo.AddTag(blogId, tagId); err != nil {
 			return err
 		}
 	}
 
+	_ = s.cache.DeleteByPrefix(ctx, redis.BlogList) // new post changes page composition
 	return nil
 }
 
@@ -139,9 +143,11 @@ func (s *BlogService) GetById(ctx context.Context, id int) (BlogResponse, error)
 }
 
 func (s *BlogService) Update(ctx context.Context, id int, req UpdateBlogRequest) error {
-	if err := s.blogrepo.Update(id, req); err != nil {
+	err := s.blogrepo.Update(id, req)
+	if err != nil {
 		return err
 	}
+
 	_ = s.cache.Delete(ctx, redis.BlogKey(id))
 	_ = s.cache.DeleteByPrefix(ctx, redis.BlogList)
 	return nil
@@ -173,10 +179,12 @@ func (s *BlogService) buildResponse(b Blog) (BlogResponse, error) {
 	if err != nil {
 		return BlogResponse{}, err
 	}
+
 	tags, err := s.tagRepo.GetByBlogId(b.BlogId)
 	if err != nil {
 		return BlogResponse{}, err
 	}
+
 	mediaList, err := s.mediaRepo.GetByBlogId(b.BlogId)
 	if err != nil {
 		return BlogResponse{}, err

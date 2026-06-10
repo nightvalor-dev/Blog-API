@@ -18,6 +18,7 @@ func ParsePagination(r *http.Request) PaginationParams {
 	if page < 1 {
 		page = 1
 	}
+
 	if limit < 1 || limit > 100 {
 		limit = 10
 	}

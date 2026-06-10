@@ -13,17 +13,19 @@ import (
 	"Project2-v7/internal/modules/user"
 	cloudinary "Project2-v7/internal/shared/cloudinary"
 	db "Project2-v7/internal/shared/db"
-	"Project2-v7/internal/shared/middleware/logger"
+	"Project2-v7/internal/shared/middleware"
 	"Project2-v7/internal/shared/redis"
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
+	"time"
 )
 
 func main() {
 	cfg := config.Load()
 
-	lo, err := logger.NewLogger("logs/app.log")
+	lo, err := middleware.NewLogger("logs/app.log")
 	if err != nil {
 		log.Fatalf("failed to create logger: %v", err)
 	}
@@ -47,6 +49,16 @@ func main() {
 	}
 
 	cloudinaryService := cloudinary.NewService(cldClient)
+
+	authLimiter := middleware.NewRedisRateLimiter(redisClient, middleware.RateLimiterConfig{
+		MaxRequests: 10,
+		Window:      time.Minute,
+	})
+
+	generalLimiter := middleware.NewRedisRateLimiter(redisClient, middleware.RateLimiterConfig{
+		MaxRequests: 100,
+		Window:      time.Minute,
+	})
 
 	// repositories
 	userRepo := user.NewUserRepository(pool)
@@ -78,7 +90,14 @@ func main() {
 	mediaHandler := media.NewMediaHandler(mediaService)
 
 	router := api.NewRouter(lo, authHandler, blogHandler, categoryHandler, tagHandler,
-		commentHandler, userHandler, likeHandler, mediaHandler)
+		commentHandler, userHandler, likeHandler, mediaHandler, authLimiter, generalLimiter)
+
+	go func() {
+		pprofAddr := "localhost:6060"
+		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			log.Printf("pprof server failed: %v", err)
+		}
+	}()
 
 	addr := fmt.Sprintf(":%s", cfg.ServerPort)
 	log.Printf("server running on %s", addr)

@@ -38,11 +38,13 @@ func (b *blogRepository) GetAllFiltered(filter BlogFilter, pagination utils.Pagi
 		args = append(args, filter.Status)
 		argIdx++
 	}
+
 	if filter.UserId > 0 {
 		conditions = append(conditions, fmt.Sprintf("user_id = $%d", argIdx))
 		args = append(args, filter.UserId)
 		argIdx++
 	}
+
 	if filter.CategoryName != "" {
 		conditions = append(conditions, fmt.Sprintf(
 			`EXISTS (
@@ -54,6 +56,7 @@ func (b *blogRepository) GetAllFiltered(filter BlogFilter, pagination utils.Pagi
 		args = append(args, filter.CategoryName)
 		argIdx++
 	}
+
 	if filter.TagName != "" {
 		conditions = append(conditions, fmt.Sprintf(
 			`EXISTS (
@@ -77,10 +80,12 @@ func (b *blogRepository) GetAllFiltered(filter BlogFilter, pagination utils.Pagi
 		"updated_at": true,
 		"title":      true,
 	}
+
 	sortBy := "created_at"
 	if allowedSortFields[filter.SortBy] {
 		sortBy = filter.SortBy
 	}
+
 	order := "desc"
 	if strings.ToLower(filter.Order) == "asc" {
 		order = "asc"
@@ -95,10 +100,7 @@ func (b *blogRepository) GetAllFiltered(filter BlogFilter, pagination utils.Pagi
 
 	// --- paginated data ---
 	dataQuery := fmt.Sprintf(
-		`SELECT blog_id, title, content, status, user_id
-		 FROM blogs %s
-		 ORDER BY %s %s
-		 LIMIT $%d OFFSET $%d`,
+		`SELECT blog_id, title, content, status, user_id FROM blogs %s ORDER BY %s %s LIMIT $%d OFFSET $%d`,
 		whereClause, sortBy, order, argIdx, argIdx+1,
 	)
 	args = append(args, pagination.Limit, pagination.Offset)
@@ -130,6 +132,7 @@ func (b *blogRepository) GetById(id int) (Blog, error) {
 	err := b.db.QueryRow(context.Background(), query, id).Scan(
 		&entity.BlogId, &entity.Title, &entity.Content, &entity.Status, &entity.UserId,
 	)
+
 	if err != nil {
 		return Blog{}, err
 	}
@@ -148,18 +151,21 @@ func (b *blogRepository) Update(id int, newBlog UpdateBlogRequest) error {
 		argIdx++
 		sep = ","
 	}
+
 	if newBlog.Content != "" {
 		query += fmt.Sprintf("%s content = $%d", sep, argIdx)
 		args = append(args, newBlog.Content)
 		argIdx++
 		sep = ","
 	}
+
 	if newBlog.Status != "" {
 		query += fmt.Sprintf("%s status = $%d", sep, argIdx)
 		args = append(args, newBlog.Status)
 		argIdx++
 		sep = ","
 	}
+
 	if len(args) == 0 {
 		return nil
 	}
